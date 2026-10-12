@@ -2,54 +2,63 @@
 //  GameViewController.swift
 //  Game
 //
-//  Created by MacBook on 2026.09.25.
+//  Swift port of the Unity fan remake — presents the SpriteKit scenes and
+//  forwards hardware keyboard events to the game scene (the Unity original
+//  used Input.GetAxis / GetKeyDown).
 //
 
 import UIKit
 import SpriteKit
-import GameplayKit
 
 class GameViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        
-        // Load 'GameScene.sks' as a GKScene. This provides gameplay related content
-        // including entities and graphs.
-        if let scene = GKScene(fileNamed: "GameScene") {
-            
-            // Get the SKScene from the loaded GKScene
-            if let sceneNode = scene.rootNode as! GameScene? {
-                
-                // Copy gameplay related content over to the scene
-                sceneNode.entities = scene.entities
-                sceneNode.graphs = scene.graphs
-                
-                // Set the scale mode to scale to fit the window
-                sceneNode.scaleMode = .aspectFill
-                
-                // Present the scene
-                if let view = self.view as! SKView? {
-                    view.presentScene(sceneNode)
-                    
-                    view.ignoresSiblingOrder = true
-                    
-                    view.showsFPS = true
-                    view.showsNodeCount = true
-                }
-            }
+
+        guard let skView = view as? SKView else { return }
+        skView.isMultipleTouchEnabled = true
+        skView.ignoresSiblingOrder = true
+        skView.showsFPS = false
+        skView.showsNodeCount = false
+
+        // Debug hook: `simctl launch ... -startRole crew|impostor` skips the menu.
+        let args = ProcessInfo.processInfo.arguments
+        var scene: SKScene = MainMenuScene(size: skView.bounds.size)
+        if let i = args.firstIndex(of: "-startRole"), i + 1 < args.count {
+            scene = args[i + 1] == "impostor" ? GameScene(role: .impostor) : GameScene(role: .crew)
         }
+        scene.scaleMode = .resizeFill
+        skView.presentScene(scene)
+    }
+
+    // MARK: - Keyboard forwarding (WASD / arrows / E / R / Q / M / Esc)
+
+    private func handlePress(_ presses: Set<UIPress>, down: Bool) {
+        guard let skView = view as? SKView,
+              let scene = skView.scene as? GameScene else { return }
+        for press in presses {
+            guard let key = press.key?.keyCode else { continue }
+            scene.keyPressed(key, isDown: down)
+        }
+    }
+
+    override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        let handled = (view as? SKView)?.scene is GameScene
+        if handled { handlePress(presses, down: true); return }
+        super.pressesBegan(presses, with: event)
+    }
+
+    override func pressesEnded(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        let handled = (view as? SKView)?.scene is GameScene
+        if handled { handlePress(presses, down: false); return }
+        super.pressesEnded(presses, with: event)
     }
 
     override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
-        if UIDevice.current.userInterfaceIdiom == .phone {
-            return .allButUpsideDown
-        } else {
-            return .all
-        }
+        .allButUpsideDown
     }
 
-    override var prefersStatusBarHidden: Bool {
-        return true
-    }
+    override var prefersStatusBarHidden: Bool { true }
+
+    override var prefersHomeIndicatorAutoHidden: Bool { true }
 }

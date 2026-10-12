@@ -24,7 +24,7 @@
 	<key>UILaunchScreen</key>
 	<dict>
 		<key>UIColorName</key>
-		<string>Black</string>
+		<string>LaunchBackground</string>
 	</dict>
 </dict>
 </plist>
