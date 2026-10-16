@@ -256,13 +256,13 @@ final class SkeldMap {
             c.translateBy(x: 0, y: Self.worldSize.height)
             c.scaleBy(x: 1, y: -1)
 
-            let floorColor = UIColor(red: 0.42, green: 0.46, blue: 0.56, alpha: 1)
-            let floorEdge = UIColor(red: 0.30, green: 0.33, blue: 0.42, alpha: 1)
-            let wallColor = UIColor(red: 0.16, green: 0.18, blue: 0.26, alpha: 1)
-            let wallTop = UIColor(red: 0.24, green: 0.27, blue: 0.38, alpha: 1)
+            let floorColor = UIColor(hex: 0xFFFEFB)
+            let floorEdge = UIColor(hex: 0xDED6CA)
+            let wallColor = UIColor(hex: 0xE9E4DC)
+            let wallTop = UIColor(hex: 0xD8D1C6)
 
             // Pass 1: walls = union of rects inflated by wall thickness.
-            let wallThickness: CGFloat = 14
+            let wallThickness: CGFloat = 5
             let wallPath = CGMutablePath()
             for r in rooms.map(\.rect) + corridors {
                 wallPath.addRect(r.insetBy(dx: -wallThickness, dy: -wallThickness))
@@ -274,7 +274,7 @@ final class SkeldMap {
             // Wall top highlight: stroke around inflated union.
             c.addPath(wallPath)
             c.setStrokeColor(wallTop.cgColor)
-            c.setLineWidth(5)
+            c.setLineWidth(3)
             c.strokePath()
 
             // Pass 2: floors on top.
@@ -287,11 +287,11 @@ final class SkeldMap {
             // Floor inner outline + panel grid for detail.
             c.addPath(floorPath)
             c.setStrokeColor(floorEdge.cgColor)
-            c.setLineWidth(6)
+            c.setLineWidth(4)
             c.strokePath()
 
             c.setLineWidth(2)
-            c.setStrokeColor(UIColor(white: 1, alpha: 0.06).cgColor)
+            c.setStrokeColor(ThemeColors.text.withAlphaComponent(0.045).cgColor)
             for x in stride(from: 0, through: Self.worldSize.width, by: 80) {
                 for y in stride(from: 0, through: Self.worldSize.height, by: 80) {
                     let cellRect = CGRect(x: x, y: y, width: 80, height: 80)
@@ -303,9 +303,9 @@ final class SkeldMap {
 
             // Room accents: cafeteria center table ring, reactor glow pads.
             if let cafe = room(named: "Cafeteria")?.rect {
-                c.setFillColor(UIColor(red: 0.52, green: 0.56, blue: 0.66, alpha: 1).cgColor)
+                c.setFillColor(UIColor(hex: 0xEFEBE4).cgColor)
                 c.fillEllipse(in: CGRect(x: cafe.midX - 70, y: cafe.midY - 6, width: 140, height: 120))
-                c.setFillColor(UIColor(red: 0.36, green: 0.40, blue: 0.50, alpha: 1).cgColor)
+                c.setFillColor(UIColor(hex: 0xE4DED4).cgColor)
                 c.fillEllipse(in: CGRect(x: cafe.midX - 46, y: cafe.midY + 18, width: 92, height: 80))
             }
         }

@@ -8,7 +8,7 @@ class MinigameOverlay: SKNode {
     var onClose: (() -> Void)?
 
     let panel = SKShapeNode()
-    let titleLabel = SKLabelNode(fontNamed: "AvenirNext-Heavy")
+    let titleLabel = SKLabelNode(fontNamed: ThemeFonts.heavy)
     let closeButton = SKNode()
 
     /// Natural (unscaled) panel bounds — GameScene fit-scales the overlay to
@@ -23,31 +23,31 @@ class MinigameOverlay: SKNode {
         isUserInteractionEnabled = true
 
         let dark = SKShapeNode(rectOf: CGSize(width: 6000, height: 4000))
-        dark.fillColor = UIColor(white: 0, alpha: 0.62)
+        dark.fillColor = ThemeColors.overlayDark.withAlphaComponent(0.55)
         dark.strokeColor = .clear
         addChild(dark)
 
         panel.path = CGPath(roundedRect: CGRect(origin: .zero, size: panelSize), cornerWidth: 26, cornerHeight: 26, transform: nil)
-        panel.fillColor = UIColor(red: 0.16, green: 0.18, blue: 0.24, alpha: 1)
-        panel.strokeColor = UIColor(red: 0.55, green: 0.58, blue: 0.68, alpha: 1)
+        panel.fillColor = ThemeColors.surface
+        panel.strokeColor = ThemeColors.line
         panel.lineWidth = 5
         panel.position = CGPoint(x: -panelSize.width / 2, y: -panelSize.height / 2)
         addChild(panel)
 
         titleLabel.text = title
         titleLabel.fontSize = 30
-        titleLabel.fontColor = .white
+        titleLabel.fontColor = ThemeColors.text
         titleLabel.position = CGPoint(x: 0, y: panelSize.height / 2 - 52)
         addChild(titleLabel)
 
         // Close button (Unity: Escape -> ExitAction)
         let btn = SKShapeNode(circleOfRadius: 24)
-        btn.fillColor = UIColor(red: 0.85, green: 0.25, blue: 0.25, alpha: 1)
+        btn.fillColor = ThemeColors.danger
         btn.strokeColor = .clear
-        let x1 = SKLabelNode(fontNamed: "AvenirNext-Heavy")
+        let x1 = SKLabelNode(fontNamed: ThemeFonts.heavy)
         x1.text = "X"
         x1.fontSize = 24
-        x1.fontColor = .white
+        x1.fontColor = ThemeColors.text
         x1.position = CGPoint(x: 0, y: -8)
         btn.addChild(x1)
         closeButton.addChild(btn)
@@ -78,8 +78,8 @@ class MinigameOverlay: SKNode {
 /// Port of DownloadMinigame.cs: progress fills over time, then completes.
 final class DownloadOverlay: MinigameOverlay {
     private let fill = SKShapeNode()
-    private let pctLabel = SKLabelNode(fontNamed: "AvenirNext-DemiBold")
-    private let statusLabel = SKLabelNode(fontNamed: "AvenirNext-Medium")
+    private let pctLabel = SKLabelNode(fontNamed: ThemeFonts.demi)
+    private let statusLabel = SKLabelNode(fontNamed: ThemeFonts.med)
     private var progress: CGFloat = 0
     private var elapsed: TimeInterval = 0
     private let duration: TimeInterval = 5.0
@@ -89,27 +89,27 @@ final class DownloadOverlay: MinigameOverlay {
 
         let barW: CGFloat = 460, barH: CGFloat = 34
         let bg = SKShapeNode(rectOf: CGSize(width: barW, height: barH), cornerRadius: barH / 2)
-        bg.fillColor = UIColor(white: 0.1, alpha: 1)
-        bg.strokeColor = UIColor(white: 1, alpha: 0.25)
+        bg.fillColor = ThemeColors.surface2
+        bg.strokeColor = ThemeColors.line.withAlphaComponent(0.6)
         bg.lineWidth = 2
         bg.position = CGPoint(x: 0, y: 20)
         addChild(bg)
 
         fill.path = CGPath(rect: CGRect(x: -barW / 2 + 4, y: -barH / 2 + 4, width: 0, height: barH - 8), transform: nil)
-        fill.fillColor = UIColor(red: 0.25, green: 0.85, blue: 0.45, alpha: 1)
+        fill.fillColor = ThemeColors.success
         fill.strokeColor = .clear
         fill.position = bg.position
         addChild(fill)
 
         pctLabel.text = "0%"
         pctLabel.fontSize = 40
-        pctLabel.fontColor = .white
+        pctLabel.fontColor = ThemeColors.text
         pctLabel.position = CGPoint(x: 0, y: 70)
         addChild(pctLabel)
 
         statusLabel.text = "Connecting to relay…"
         statusLabel.fontSize = 19
-        statusLabel.fontColor = UIColor(white: 0.75, alpha: 1)
+        statusLabel.fontColor = ThemeColors.textSecondary
         statusLabel.position = CGPoint(x: 0, y: -55)
         addChild(statusLabel)
     }
@@ -145,7 +145,7 @@ final class CardSwipeOverlay: MinigameOverlay {
     private let card = SKNode()
     private let cardBody = SKShapeNode()
     private let track = SKShapeNode()
-    private let hint = SKLabelNode(fontNamed: "AvenirNext-DemiBold")
+    private let hint = SKLabelNode(fontNamed: ThemeFonts.demi)
     private var dragging = false
     private var cardX: CGFloat = -190
     private let minX: CGFloat = -190, maxX: CGFloat = 190
@@ -155,24 +155,24 @@ final class CardSwipeOverlay: MinigameOverlay {
 
         let trackW: CGFloat = 520
         track.path = CGPath(roundedRect: CGRect(x: -trackW / 2, y: -34, width: trackW, height: 68), cornerWidth: 12, cornerHeight: 12, transform: nil)
-        track.fillColor = UIColor(white: 0.09, alpha: 1)
-        track.strokeColor = UIColor(white: 1, alpha: 0.2)
+        track.fillColor = ThemeColors.surface2
+        track.strokeColor = ThemeColors.line.withAlphaComponent(0.5)
         track.lineWidth = 2
         track.position = CGPoint(x: 0, y: -10)
         addChild(track)
 
         let slot = SKShapeNode(rectOf: CGSize(width: 8, height: 90))
-        slot.fillColor = UIColor(red: 0.1, green: 0.12, blue: 0.16, alpha: 1)
+        slot.fillColor = ThemeColors.divider
         slot.strokeColor = .clear
         slot.position = CGPoint(x: minX - 26, y: -10)
         addChild(slot)
 
         cardBody.path = CGPath(roundedRect: CGRect(x: -70, y: -46, width: 140, height: 92), cornerWidth: 10, cornerHeight: 10, transform: nil)
-        cardBody.fillColor = UIColor(red: 0.93, green: 0.78, blue: 0.2, alpha: 1)
-        cardBody.strokeColor = UIColor(white: 0.1, alpha: 1)
+        cardBody.fillColor = ThemeColors.butter
+        cardBody.strokeColor = ThemeColors.text.withAlphaComponent(0.8)
         cardBody.lineWidth = 3
         let stripe = SKShapeNode(rectOf: CGSize(width: 120, height: 14))
-        stripe.fillColor = UIColor(white: 0.25, alpha: 1)
+        stripe.fillColor = ThemeColors.text.withAlphaComponent(0.85)
         stripe.strokeColor = .clear
         stripe.position = CGPoint(x: 0, y: -14)
         cardBody.addChild(stripe)
@@ -182,7 +182,7 @@ final class CardSwipeOverlay: MinigameOverlay {
 
         hint.text = "Drag the card through the reader →"
         hint.fontSize = 21
-        hint.fontColor = UIColor(white: 0.8, alpha: 1)
+        hint.fontColor = ThemeColors.textSecondary
         hint.position = CGPoint(x: 0, y: -120)
         addChild(hint)
     }
@@ -209,11 +209,11 @@ final class CardSwipeOverlay: MinigameOverlay {
         dragging = false
         if cardX >= maxX - 4 {
             hint.text = "Accepted. Thank you!"
-            hint.fontColor = UIColor(red: 0.4, green: 0.95, blue: 0.5, alpha: 1)
+            hint.fontColor = ThemeColors.sageDeep
             run(.wait(forDuration: 0.4)) { [weak self] in self?.finish() }
         } else {
             hint.text = "Bad read. Try again."
-            hint.fontColor = UIColor(red: 0.98, green: 0.45, blue: 0.45, alpha: 1)
+            hint.fontColor = ThemeColors.coralDeep
             card.run(.moveTo(x: minX, duration: 0.25))
             cardX = minX
         }
@@ -223,9 +223,9 @@ final class CardSwipeOverlay: MinigameOverlay {
 /// Extra task: connect the three colored wires.
 final class WiringOverlay: MinigameOverlay {
     private let wireColors: [UIColor] = [
-        UIColor(red: 0.93, green: 0.2, blue: 0.2, alpha: 1),
-        UIColor(red: 0.25, green: 0.6, blue: 0.98, alpha: 1),
-        UIColor(red: 0.98, green: 0.75, blue: 0.15, alpha: 1),
+        ThemeColors.danger,
+        ThemeColors.primary,
+        ThemeColors.butter,
     ]
     private var leftOrder: [Int] = []
     private var rightOrder: [Int] = []
@@ -275,13 +275,19 @@ final class WiringOverlay: MinigameOverlay {
         node.position = CGPoint(x: x, y: y)
         let circle = SKShapeNode(circleOfRadius: 22)
         circle.fillColor = wireColors[colorIndex]
-        circle.strokeColor = UIColor(white: 1, alpha: 0.5)
+        circle.strokeColor = ThemeColors.text.withAlphaComponent(0.5)
         circle.lineWidth = 3
         node.addChild(circle)
         let meta = SKNode()
         meta.name = side == .left ? "L\(colorIndex)" : "R\(colorIndex)"
         circle.name = meta.name
         node.userData = ["idx": colorIndex, "side": side == .left ? 0 : 1]
+        let num = SKLabelNode(fontNamed: ThemeFonts.demi)
+        num.text = "\(colorIndex + 1)"
+        num.fontSize = 15
+        num.fontColor = ThemeColors.text
+        num.position = CGPoint(x: 0, y: -36)
+        node.addChild(num)
         return node
     }
 

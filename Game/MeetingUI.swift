@@ -19,9 +19,9 @@ final class MeetingOverlay: SKNode {
     private var phase: Phase = .voting
     private var timer: TimeInterval = 20
     private var timeLeft: TimeInterval = 20
-    private let timerLabel = SKLabelNode(fontNamed: "AvenirNext-Heavy")
-    private let statusLabel = SKLabelNode(fontNamed: "AvenirNext-DemiBold")
-    private var resultLabel = SKLabelNode(fontNamed: "AvenirNext-Heavy")
+    private let timerLabel = SKLabelNode(fontNamed: ThemeFonts.heavy)
+    private let statusLabel = SKLabelNode(fontNamed: ThemeFonts.demi)
+    private var resultLabel = SKLabelNode(fontNamed: ThemeFonts.heavy)
     private var selectedTarget: Int? = nil
     private var castYourVote = false
     private var botVoteBadges: [SKNode] = []
@@ -39,7 +39,7 @@ final class MeetingOverlay: SKNode {
         isUserInteractionEnabled = true
 
         let dark = SKShapeNode(rectOf: CGSize(width: 6000, height: 4000))
-        dark.fillColor = UIColor(white: 0, alpha: 0.75)
+        dark.fillColor = ThemeColors.overlayDark.withAlphaComponent(0.75)
         dark.strokeColor = .clear
         addChild(dark)
 
@@ -47,27 +47,27 @@ final class MeetingOverlay: SKNode {
             ? CGRect(x: -175, y: -320, width: 350, height: 640)
             : CGRect(x: -430, y: -260, width: 860, height: 520)
         let panel = SKShapeNode(path: CGPath(roundedRect: panelRect, cornerWidth: 24, cornerHeight: 24, transform: nil))
-        panel.fillColor = UIColor(red: 0.13, green: 0.15, blue: 0.2, alpha: 1)
-        panel.strokeColor = UIColor(red: 0.5, green: 0.53, blue: 0.62, alpha: 1)
+        panel.fillColor = ThemeColors.surface
+        panel.strokeColor = ThemeColors.line
         panel.lineWidth = 5
         addChild(panel)
 
-        let title = SKLabelNode(fontNamed: "AvenirNext-Heavy")
+        let title = SKLabelNode(fontNamed: ThemeFonts.heavy)
         title.text = "EMERGENCY MEETING"
         title.fontSize = portraitLayout ? 20 : 34
-        title.fontColor = UIColor(red: 0.98, green: 0.3, blue: 0.3, alpha: 1)
+        title.fontColor = ThemeColors.coralDeep
         title.position = portraitLayout ? CGPoint(x: 0, y: 284) : CGPoint(x: 0, y: 212)
         addChild(title)
 
         statusLabel.text = "\(reporterName) reported a body\nWho is the Impostor?"
         statusLabel.fontSize = portraitLayout ? 14 : 20
-        statusLabel.fontColor = .white
+        statusLabel.fontColor = ThemeColors.text
         statusLabel.numberOfLines = 2
         statusLabel.position = portraitLayout ? CGPoint(x: 0, y: 252) : CGPoint(x: 0, y: 172)
         addChild(statusLabel)
 
         timerLabel.fontSize = portraitLayout ? 18 : 26
-        timerLabel.fontColor = .white
+        timerLabel.fontColor = ThemeColors.text
         timerLabel.position = portraitLayout ? CGPoint(x: 140, y: 284) : CGPoint(x: 390, y: 212)
         addChild(timerLabel)
 
@@ -75,7 +75,7 @@ final class MeetingOverlay: SKNode {
         buildBottomButtons()
 
         resultLabel.fontSize = portraitLayout ? 15 : 30
-        resultLabel.fontColor = .white
+        resultLabel.fontColor = ThemeColors.text
         resultLabel.numberOfLines = 3
         resultLabel.position = portraitLayout ? CGPoint(x: 0, y: -252) : CGPoint(x: 0, y: -120)
         resultLabel.isHidden = true
@@ -116,8 +116,8 @@ final class MeetingOverlay: SKNode {
             node.name = "vote_\(i)"
 
             let frame = SKShapeNode(rect: CGRect(x: -cellW / 2, y: -cellH / 2, width: cellW, height: cellH), cornerRadius: 14)
-            frame.fillColor = UIColor(white: 0.1, alpha: 1)
-            frame.strokeColor = p.isPlayer && you?.isImpostor == false ? UIColor(white: 0.9, alpha: 1) : UIColor(white: 0.35, alpha: 1)
+            frame.fillColor = ThemeColors.surface2
+            frame.strokeColor = p.isPlayer && you?.isImpostor == false ? ThemeColors.text : ThemeColors.line
             frame.lineWidth = 3
             node.addChild(frame)
 
@@ -126,18 +126,18 @@ final class MeetingOverlay: SKNode {
             face.position = CGPoint(x: 0, y: 8)
             node.addChild(face)
 
-            let nameLabel = SKLabelNode(fontNamed: "AvenirNext-DemiBold")
+            let nameLabel = SKLabelNode(fontNamed: ThemeFonts.demi)
             nameLabel.text = p.isPlayer ? "YOU" : p.crewmate.crewName
             nameLabel.fontSize = portraitLayout ? 13 : 17
-            nameLabel.fontColor = .white
+            nameLabel.fontColor = ThemeColors.text
             nameLabel.position = CGPoint(x: 0, y: -cellH / 2 + 16)
             node.addChild(nameLabel)
 
             if p.isPlayer && you?.isImpostor == true {
-                let imp = SKLabelNode(fontNamed: "AvenirNext-Heavy")
+                let imp = SKLabelNode(fontNamed: ThemeFonts.heavy)
                 imp.text = "IMPOSTOR"
                 imp.fontSize = portraitLayout ? 10 : 13
-                imp.fontColor = UIColor(red: 0.98, green: 0.3, blue: 0.3, alpha: 1)
+                imp.fontColor = ThemeColors.coralDeep
                 imp.position = CGPoint(x: 0, y: 52)
                 node.addChild(imp)
             }
@@ -156,9 +156,9 @@ final class MeetingOverlay: SKNode {
         let y: CGFloat = portraitLayout ? -288 : -195
 
         confirmButton = SKShapeNode(rect: CGRect(x: -bw / 2, y: -bh / 2, width: bw, height: bh), cornerRadius: 16)
-        confirmButton.fillColor = UIColor(red: 0.2, green: 0.7, blue: 0.35, alpha: 1)
+        confirmButton.fillColor = ThemeColors.sageDeep
         confirmButton.strokeColor = .clear
-        let voteLabel = SKLabelNode(fontNamed: "AvenirNext-Heavy")
+        let voteLabel = SKLabelNode(fontNamed: ThemeFonts.heavy)
         voteLabel.text = "VOTE"
         voteLabel.fontSize = portraitLayout ? 16 : 22
         voteLabel.fontColor = .white
@@ -170,9 +170,9 @@ final class MeetingOverlay: SKNode {
         addChild(confirmButton)
 
         skipButton = SKShapeNode(rect: CGRect(x: -bw / 2, y: -bh / 2, width: bw, height: bh), cornerRadius: 16)
-        skipButton.fillColor = UIColor(white: 0.35, alpha: 1)
+        skipButton.fillColor = UIColor(hex: 0x575768)
         skipButton.strokeColor = .clear
-        let skipLabel = SKLabelNode(fontNamed: "AvenirNext-Heavy")
+        let skipLabel = SKLabelNode(fontNamed: ThemeFonts.heavy)
         skipLabel.text = "SKIP VOTE"
         skipLabel.fontSize = portraitLayout ? 16 : 22
         skipLabel.fontColor = .white
@@ -208,7 +208,7 @@ final class MeetingOverlay: SKNode {
     private func highlightSelection(_ idx: Int) {
         for (i, node) in portraitNodes.enumerated() {
             if let frame = node.children.first as? SKShapeNode {
-                frame.strokeColor = i == idx ? UIColor(red: 1, green: 0.8, blue: 0.2, alpha: 1) : UIColor(white: 0.35, alpha: 1)
+                frame.strokeColor = i == idx ? ThemeColors.butter : ThemeColors.line
                 frame.lineWidth = i == idx ? 6 : 3
             }
         }
@@ -260,7 +260,7 @@ final class MeetingOverlay: SKNode {
         guard target >= 0 && target < portraitNodes.count else { return }
         let badge = SKShapeNode(circleOfRadius: portraitLayout ? 7 : 8)
         badge.fillColor = color
-        badge.strokeColor = UIColor(white: 0, alpha: 0.4)
+        badge.strokeColor = ThemeColors.text.withAlphaComponent(0.4)
         let count = portraitNodes[target].children.filter { $0.name == "badge" }.count
         let stepX: CGFloat = portraitLayout ? 22 : 26
         badge.position = CGPoint(x: -CGFloat(portraitLayout ? 4 : 5) * stepX / 2 + CGFloat(count % 5) * stepX + stepX / 2,

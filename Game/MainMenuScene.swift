@@ -21,7 +21,7 @@ final class MainMenuScene: SKScene {
     }
 
     private func build() {
-        backgroundColor = .white
+        backgroundColor = ThemeColors.bg
 
         let w = size.width, h = size.height
         let margin: CGFloat = 32
@@ -61,28 +61,28 @@ final class MainMenuScene: SKScene {
 
         // WELCOME TO
         place(17, 20) { cy in
-            let l = SKLabelNode(fontNamed: "AvenirNext-DemiBold")
+            let l = SKLabelNode(fontNamed: ThemeFonts.demi)
             l.text = "W E L C O M E   T O"
             l.fontSize = 13
-            l.fontColor = UIColor(white: 0.55, alpha: 1)
+            l.fontColor = ThemeColors.textSecondary
             l.position = CGPoint(x: 0, y: cy - 5)
             column.addChild(l)
         }
 
         // Title, two lines
         place(titleF, 8) { cy in
-            let l = SKLabelNode(fontNamed: "AvenirNext-Heavy")
+            let l = SKLabelNode(fontNamed: ThemeFonts.heavy)
             l.text = "Life at"
             l.fontSize = titleF
-            l.fontColor = .black
+            l.fontColor = ThemeColors.text
             l.position = CGPoint(x: 0, y: cy - titleF * 0.35)
             column.addChild(l)
         }
         place(titleF, 26) { cy in
-            let l = SKLabelNode(fontNamed: "AvenirNext-Heavy")
+            let l = SKLabelNode(fontNamed: ThemeFonts.heavy)
             l.text = "Our University"
             l.fontSize = titleF
-            l.fontColor = .black
+            l.fontColor = ThemeColors.text
             l.position = CGPoint(x: 0, y: cy - titleF * 0.35)
             column.addChild(l)
         }
@@ -90,7 +90,7 @@ final class MainMenuScene: SKScene {
         // Divider
         place(2, 34) { cy in
             let line = SKShapeNode(rectOf: CGSize(width: 36, height: 2), cornerRadius: 1)
-            line.fillColor = .black
+            line.fillColor = ThemeColors.divider
             line.strokeColor = .clear
             line.position = CGPoint(x: 0, y: cy)
             column.addChild(line)
@@ -108,15 +108,15 @@ final class MainMenuScene: SKScene {
                                             at: CGPoint(x: 0, y: cy)))
         }
         place(18, 0) { cy in
-            let l = SKLabelNode(fontNamed: "AvenirNext-Medium")
+            let l = SKLabelNode(fontNamed: ThemeFonts.med)
             l.text = "How to play"
             l.fontSize = 15
-            l.fontColor = UIColor(white: 0.45, alpha: 1)
+            l.fontColor = ThemeColors.textSecondary
             l.position = CGPoint(x: 0, y: cy - 5)
             l.name = "btn_help"
             column.addChild(l)
             let underline = SKShapeNode(rectOf: CGSize(width: 70, height: 1), cornerRadius: 0.5)
-            underline.fillColor = UIColor(white: 0.45, alpha: 1)
+            underline.fillColor = ThemeColors.textSecondary
             underline.strokeColor = .clear
             underline.position = CGPoint(x: 0, y: cy - 15)
             underline.name = "btn_help"
@@ -124,10 +124,10 @@ final class MainMenuScene: SKScene {
         }
 
         // Footer
-        let footer = SKLabelNode(fontNamed: "AvenirNext-Medium")
+        let footer = SKLabelNode(fontNamed: ThemeFonts.med)
         footer.text = "a tiny game about campus life"
         footer.fontSize = 11
-        footer.fontColor = UIColor(white: 0.72, alpha: 1)
+        footer.fontColor = ThemeColors.textSecondary
         footer.position = CGPoint(x: w / 2, y: 18)
         addChild(footer)
     }
@@ -136,15 +136,15 @@ final class MainMenuScene: SKScene {
                             primary: Bool, at p: CGPoint) -> SKNode {
         let b = SKShapeNode(rect: CGRect(x: -width / 2, y: -height / 2, width: width, height: height),
                             cornerRadius: height / 2)
-        b.fillColor = primary ? .black : .white
-        b.strokeColor = primary ? .clear : .black
+        b.fillColor = primary ? ThemeColors.primary : ThemeColors.surface
+        b.strokeColor = primary ? .clear : ThemeColors.line
         b.lineWidth = 1.5
         b.name = name
         b.position = p
-        let l = SKLabelNode(fontNamed: "AvenirNext-DemiBold")
+        let l = SKLabelNode(fontNamed: ThemeFonts.demi)
         l.text = text
         l.fontSize = 16
-        l.fontColor = primary ? .white : .black
+        l.fontColor = ThemeColors.text
         l.name = name
         l.position = CGPoint(x: 0, y: -5.5)
         b.addChild(l)
@@ -187,17 +187,17 @@ final class MainMenuScene: SKScene {
         overlay.zPosition = 100
 
         let paper = SKShapeNode(rectOf: CGSize(width: 6000, height: 4000))
-        paper.fillColor = UIColor(white: 1, alpha: 0.97)
+        paper.fillColor = ThemeColors.bg.withAlphaComponent(0.97)
         paper.strokeColor = .clear
         overlay.addChild(paper)
 
         let portrait = size.height >= size.width
         let bodyF: CGFloat = portrait ? 13 : 15
 
-        let title = SKLabelNode(fontNamed: "AvenirNext-Heavy")
+        let title = SKLabelNode(fontNamed: ThemeFonts.heavy)
         title.text = "HOW TO PLAY"
         title.fontSize = 24
-        title.fontColor = .black
+        title.fontColor = ThemeColors.text
         title.position = CGPoint(x: 0, y: 150)
         overlay.addChild(title)
 
@@ -213,18 +213,18 @@ final class MainMenuScene: SKScene {
             "Security cameras can witness kills.",
         ]
         for (i, line) in lines.enumerated() {
-            let l = SKLabelNode(fontNamed: "AvenirNext-Medium")
+            let l = SKLabelNode(fontNamed: ThemeFonts.med)
             l.text = line
             l.fontSize = line.isEmpty ? 8 : bodyF
-            l.fontColor = i >= 6 ? UIColor(white: 0.15, alpha: 1) : UIColor(white: 0.35, alpha: 1)
+            l.fontColor = i >= 6 ? ThemeColors.text : ThemeColors.textSecondary
             l.position = CGPoint(x: 0, y: 112 - CGFloat(i + 1) * (bodyF + 9))
             overlay.addChild(l)
         }
 
-        let tap = SKLabelNode(fontNamed: "AvenirNext-Medium")
+        let tap = SKLabelNode(fontNamed: ThemeFonts.med)
         tap.text = "tap anywhere to close"
         tap.fontSize = 12
-        tap.fontColor = UIColor(white: 0.55, alpha: 1)
+        tap.fontColor = ThemeColors.textSecondary
         tap.position = CGPoint(x: 0, y: -size.height / 2 + 40)
         overlay.addChild(tap)
 
