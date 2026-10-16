@@ -9,19 +9,10 @@ enum CrewColor: Int, CaseIterable, Codable {
         ["Red", "Blue", "Green", "Pink", "Orange", "Yellow", "Black", "White", "Purple", "Cyan"][rawValue]
     }
 
+    /// Pastel roster — values come from the theme so the UI chips always match
+    /// the generated character sheet rows (see Art/generate_characters.py).
     var uiColor: UIColor {
-        switch self {
-        case .red:    return UIColor(red: 193/255, green: 68/255, blue: 67/255, alpha: 1)
-        case .blue:   return UIColor(red: 67/255, green: 94/255, blue: 193/255, alpha: 1)
-        case .green:  return UIColor(red: 80/255, green: 168/255, blue: 84/255, alpha: 1)
-        case .pink:   return UIColor(red: 222/255, green: 132/255, blue: 190/255, alpha: 1)
-        case .orange: return UIColor(red: 240/255, green: 148/255, blue: 36/255, alpha: 1)
-        case .yellow: return UIColor(red: 240/255, green: 222/255, blue: 60/255, alpha: 1)
-        case .black:  return UIColor(red: 68/255, green: 72/255, blue: 84/255, alpha: 1)
-        case .white:  return UIColor(red: 222/255, green: 230/255, blue: 228/255, alpha: 1)
-        case .purple: return UIColor(red: 116/255, green: 60/255, blue: 168/255, alpha: 1)
-        case .cyan:   return UIColor(red: 72/255, green: 208/255, blue: 208/255, alpha: 1)
-        }
+        UIColor(hex: ThemeColors.playerPastels[rawValue])
     }
 
     static func random(excluding: [CrewColor]) -> CrewColor {
@@ -72,7 +63,7 @@ final class Crewmate: SKNode {
     let crewName: String
 
     private let sprite = SKSpriteNode()
-    private let nameLabel = SKLabelNode(fontNamed: "AvenirNext-DemiBold")
+    private let nameLabel = SKLabelNode(fontNamed: ThemeFonts.demi)
     private var walkTextures: [SKTexture] = []
     private var idleTexture: SKTexture
     private(set) var deadTexture: SKTexture
@@ -104,7 +95,7 @@ final class Crewmate: SKNode {
 
         nameLabel.text = crewName
         nameLabel.fontSize = 17
-        nameLabel.fontColor = .white
+        nameLabel.fontColor = ThemeColors.text
         nameLabel.verticalAlignmentMode = .bottom
         nameLabel.position = CGPoint(x: 0, y: bodyHeight * 0.92)
         nameLabel.zPosition = 10
