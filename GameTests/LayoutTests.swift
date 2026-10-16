@@ -19,7 +19,7 @@ struct LayoutTests {
 
     private func assertControlsFit(_ scene: GameScene, _ label: String) {
         let w = scene.size.width, h = scene.size.height
-        let radii = ["btn_use": CGFloat(44), "btn_report": 40, "btn_kill": 40, "btn_map": 30]
+        let radii = ["btn_use": CGFloat(44), "btn_report": 40, "btn_kill": 40, "btn_map": 30, "btn_menu": 30]
         for (name, r) in radii {
             guard let node = scene.childNode(withName: "//\(name)") else {
                 if name == "btn_kill", scene.role == .crew { continue }
@@ -78,6 +78,31 @@ struct LayoutTests {
         scene.size = portrait           // and back
         scene.didChangeSize(landscape)
         assertControlsFit(scene, "after rotation back to portrait")
+    }
+
+    @Test func menuSidebarBuildsAndCloses() {
+        for (sz, label) in [(portrait, "menu portrait"), (landscape, "menu landscape")] {
+            let scene = GameScene(role: .crew)
+            scene.size = sz
+            scene.didMove(to: SKView())
+            scene.openMenu()
+            for name in ["menu_resume", "menu_map", "menu_help", "menu_speed", "menu_home"] {
+                #expect(scene.childNode(withName: "//\(name)") != nil,
+                        "\(label): sidebar is missing \(name)")
+            }
+            // The panel sizes itself to fit the viewport (the slide-in SKAction
+            // hasn't run in a unit test, so check the panel's computed bounds).
+            if let bg = scene.childNode(withName: "//menu_panel") as? SKShapeNode,
+               let box = bg.path?.boundingBox {
+                #expect(box.width <= sz.width - 40, "\(label): panel width \(box.width) overflows \(sz.width)")
+                #expect(box.height <= sz.height - 36, "\(label): panel height \(box.height) overflows \(sz.height)")
+            } else {
+                Issue.record("\(label): missing menu panel background")
+            }
+            scene.closeMenu(animated: false)
+            #expect(scene.childNode(withName: "//menu_resume") == nil,
+                    "\(label): sidebar did not close")
+        }
     }
 
     @Test func menuFitsBothOrientations() {

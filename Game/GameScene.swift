@@ -59,7 +59,21 @@ class GameScene: SKScene {
     private var killButton: SKNode?
     private var killCooldownLabel: SKLabelNode?
     private var toastLabel: SKLabelNode!
+    private var menuButton: SKNode!
     private var hudBuilt = false
+
+    // MARK: - Menu sidebar (pause / settings / home)
+
+    private var menuOpen = false
+    private var menuRoot: SKNode?
+    private var menuPanel: SKNode?
+    private var speedValueLabel: SKLabelNode?
+    private var helpCard: SKNode?
+    /// Persisted move-speed setting (SETTINGS → MOVE SPEED in the sidebar).
+    var speedMultiplier: CGFloat = 1
+    private var speedIndex = 1
+    private let speedChoices: [(label: String, mult: CGFloat)] =
+        [("SLOW", 0.75), ("NORMAL", 1), ("FAST", 1.3)]
 
     // MARK: - Overlays
 
@@ -92,8 +106,15 @@ class GameScene: SKScene {
     required init?(coder: NSCoder) { fatalError() }
 
     override func didMove(to view: SKView) {
-        backgroundColor = UIColor(red: 0.05, green: 0.06, blue: 0.11, alpha: 1)
+        backgroundColor = ThemeColors.bg
         lastTime = 0
+
+        // Restore the saved move-speed setting (see cycleSpeed).
+        let saved = UserDefaults.standard.double(forKey: "menu.speedMultiplier")
+        if let idx = speedChoices.firstIndex(where: { $0.mult == CGFloat(saved) }) {
+            speedIndex = idx
+            speedMultiplier = speedChoices[idx].mult
+        }
 
         // --- world ---
         addChild(world)
@@ -112,10 +133,10 @@ class GameScene: SKScene {
 
         // Room name labels
         for room in map.rooms {
-            let l = SKLabelNode(fontNamed: "AvenirNext-Heavy")
+            let l = SKLabelNode(fontNamed: ThemeFonts.heavy)
             l.text = room.name.uppercased()
             l.fontSize = 30
-            l.fontColor = UIColor(white: 1, alpha: 0.16)
+            l.fontColor = ThemeColors.text.withAlphaComponent(0.12)
             l.position = CGPoint(x: room.rect.midX, y: room.rect.midY + room.rect.height * 0.28)
             l.zPosition = -5
             world.addChild(l)
@@ -144,6 +165,8 @@ class GameScene: SKScene {
     override func didChangeSize(_ oldSize: CGSize) {
         super.didChangeSize(oldSize)
         guard hudBuilt else { return }
+        closeMenu(animated: false)
+        closeHelpCard()
         layoutHUD()
         refreshTaskList()
         if cctvActive { layoutCCTVUI() }
@@ -173,6 +196,10 @@ class GameScene: SKScene {
         guard let i = args.firstIndex(of: "-debugState"), i + 1 < args.count else { return }
         let you = playerParticipant
         switch args[i + 1] {
+        case "menu":
+            run(.wait(forDuration: 0.6)) { [weak self] in self?.openMenu() }
+        case "help":
+            run(.wait(forDuration: 0.6)) { [weak self] in self?.showHelpCard() }
         case "minimap":
             run(.wait(forDuration: 0.6)) { [weak self] in self?.toggleMinimap() }
         case "cctv":
@@ -266,18 +293,18 @@ class GameScene: SKScene {
         node.name = "station_\(st.id)"
         if st.kind == .scan {
             let pad = SKShapeNode(circleOfRadius: 42)
-            pad.fillColor = UIColor(white: 1, alpha: 0.08)
-            pad.strokeColor = UIColor(red: 0.3, green: 0.9, blue: 0.7, alpha: 0.7)
+            pad.fillColor = ThemeColors.surface.withAlphaComponent(0.55)
+            pad.strokeColor = ThemeColors.mintDeep.withAlphaComponent(0.7)
             pad.lineWidth = 4
             pad.zPosition = -2
             node.addChild(pad)
         } else {
             let body = SKShapeNode(rectOf: CGSize(width: 44, height: 34), cornerRadius: 6)
-            body.fillColor = UIColor(white: 0.22, alpha: 1)
-            body.strokeColor = UIColor(white: 0.75, alpha: 1)
+            body.fillColor = ThemeColors.surface2
+            body.strokeColor = ThemeColors.lineStrong
             body.lineWidth = 3
             let screen = SKShapeNode(rectOf: CGSize(width: 28, height: 18), cornerRadius: 3)
-            screen.fillColor = UIColor(red: 0.35, green: 0.9, blue: 0.75, alpha: 0.9)
+            screen.fillColor = ThemeColors.mintDeep.withAlphaComponent(0.9)
             screen.strokeColor = .clear
             node.addChild(body)
             node.addChild(screen)
@@ -289,8 +316,8 @@ class GameScene: SKScene {
         if let node = stationNodes.childNode(withName: "station_\(st.id)") {
             for child in node.children {
                 if let shape = child as? SKShapeNode {
-                    shape.strokeColor = UIColor(white: 0.4, alpha: 0.4)
-                    shape.fillColor = UIColor(white: 0.15, alpha: 0.6)
+                    shape.strokeColor = ThemeColors.line.withAlphaComponent(0.4)
+                    shape.fillColor = ThemeColors.surface2.withAlphaComponent(0.6)
                 }
             }
             node.alpha = 0.5
@@ -307,7 +334,7 @@ class GameScene: SKScene {
         lastTime = currentTime
         guard dt > 0 else { return }
 
-        if !gameOver && !meetingActive {
+        if !gameOver && !meetingActive && !menuOpen {
             updatePlayer(dt)
             for bot in bots { bot.update(currentTime, dt) }
             updateScanTask(dt)
@@ -321,7 +348,7 @@ class GameScene: SKScene {
     }
 
     private var movementLocked: Bool {
-        gameOver || activeOverlay != nil || meetingActive || cctvActive
+        gameOver || activeOverlay != nil || meetingActive || cctvActive || menuOpen
     }
 
     private func updatePlayer(_ dt: TimeInterval) {
@@ -338,7 +365,7 @@ class GameScene: SKScene {
         let moving = len > 0.08
         if moving {
             let nx = dir.dx / max(len, 1), ny = dir.dy / max(len, 1)
-            let speed = playerSpeed * min(1, len)
+            let speed = playerSpeed * speedMultiplier * min(1, len)
             crew.position = map.move(crew.position, by: CGVector(dx: nx * speed * CGFloat(dt), dy: ny * speed * CGFloat(dt)), radius: 15)
         }
         crew.update(dt: dt, moving: moving, direction: CGPoint(x: dir.dx, y: dir.dy))
@@ -423,7 +450,7 @@ class GameScene: SKScene {
     private var redFlash: SKShapeNode?
     private func flashRed() {
         let f = SKShapeNode(rectOf: CGSize(width: 6000, height: 4000))
-        f.fillColor = UIColor(red: 0.8, green: 0, blue: 0, alpha: 0.35)
+        f.fillColor = ThemeColors.danger.withAlphaComponent(0.35)
         f.strokeColor = .clear
         f.zPosition = 800
         cam.addChild(f)
@@ -560,6 +587,8 @@ class GameScene: SKScene {
         if let won {
             gameOver = true
             closeCCTV()
+            closeMenu(animated: false)
+            closeHelpCard()
             minimap?.removeFromParent(); minimap = nil
             showEndScreen(victory: won, message: text)
         }
@@ -570,14 +599,14 @@ class GameScene: SKScene {
         overlay.zPosition = 1000
 
         let dark = SKShapeNode(rectOf: CGSize(width: 6000, height: 4000))
-        dark.fillColor = UIColor(white: 0, alpha: 0.78)
+        dark.fillColor = ThemeColors.overlayDark.withAlphaComponent(0.78)
         dark.strokeColor = .clear
         overlay.addChild(dark)
 
-        let title = SKLabelNode(fontNamed: "AvenirNext-Heavy")
+        let title = SKLabelNode(fontNamed: ThemeFonts.heavy)
         title.text = victory ? "VICTORY" : "DEFEAT"
         title.fontSize = 84
-        title.fontColor = victory ? UIColor(red: 0.35, green: 0.9, blue: 0.45, alpha: 1) : UIColor(red: 0.95, green: 0.25, blue: 0.25, alpha: 1)
+        title.fontColor = victory ? ThemeColors.sageDeep : ThemeColors.coralDeep
         title.position = CGPoint(x: 0, y: 130)
         overlay.addChild(title)
 
@@ -586,7 +615,7 @@ class GameScene: SKScene {
         face.position = CGPoint(x: 0, y: 20)
         overlay.addChild(face)
 
-        let msg = SKLabelNode(fontNamed: "AvenirNext-DemiBold")
+        let msg = SKLabelNode(fontNamed: ThemeFonts.demi)
         msg.text = message
         msg.fontSize = isPortrait ? 18 : 24
         msg.fontColor = .white
@@ -601,7 +630,7 @@ class GameScene: SKScene {
             b.strokeColor = .clear
             b.name = name
             b.position = CGPoint(x: x, y: -170)
-            let l = SKLabelNode(fontNamed: "AvenirNext-Heavy")
+            let l = SKLabelNode(fontNamed: ThemeFonts.heavy)
             l.text = text
             l.fontSize = isPortrait ? 16 : 22
             l.fontColor = .white
@@ -609,8 +638,8 @@ class GameScene: SKScene {
             b.addChild(l)
             return b
         }
-        overlay.addChild(makeButton("PLAY AGAIN", "end_again", UIColor(red: 0.2, green: 0.65, blue: 0.35, alpha: 1), -buttonOffset))
-        overlay.addChild(makeButton("MAIN MENU", "end_menu", UIColor(white: 0.35, alpha: 1), buttonOffset))
+        overlay.addChild(makeButton("PLAY AGAIN", "end_again", ThemeColors.sageDeep, -buttonOffset))
+        overlay.addChild(makeButton("MAIN MENU", "end_menu", UIColor(hex: 0x575768), buttonOffset))
         overlay.setScale(fitScale(for: CGSize(width: 460, height: 400)))
         cam.addChild(overlay)
         endOverlay = overlay
@@ -625,11 +654,11 @@ class GameScene: SKScene {
         node.position = CGPoint(x: sec.rect.midX + 40, y: sec.rect.midY - 20)
         node.name = "cctv_station"
         let desk = SKShapeNode(rectOf: CGSize(width: 66, height: 46), cornerRadius: 8)
-        desk.fillColor = UIColor(white: 0.2, alpha: 1)
-        desk.strokeColor = UIColor(white: 0.8, alpha: 1)
+        desk.fillColor = ThemeColors.surface2
+        desk.strokeColor = ThemeColors.lineStrong
         desk.lineWidth = 3
         let scr = SKShapeNode(rectOf: CGSize(width: 44, height: 26), cornerRadius: 4)
-        scr.fillColor = UIColor(red: 0.9, green: 0.3, blue: 0.25, alpha: 0.85)
+        scr.fillColor = ThemeColors.coralDeep.withAlphaComponent(0.85)
         scr.strokeColor = .clear
         node.addChild(desk)
         node.addChild(scr)
@@ -647,24 +676,24 @@ class GameScene: SKScene {
         let ui = SKNode()
         ui.zPosition = 500
 
-        let label = SKLabelNode(fontNamed: "AvenirNext-Heavy")
+        let label = SKLabelNode(fontNamed: ThemeFonts.heavy)
         label.text = "● CAMERA FEED"
         label.fontSize = 24
-        label.fontColor = UIColor(red: 0.95, green: 0.3, blue: 0.3, alpha: 1)
+        label.fontColor = ThemeColors.coralDeep
         ui.addChild(label)
         cctvFeedLabel = label
 
         cctvCamShapes = []
         for i in 0..<camRooms.count {
             let b = SKShapeNode()
-            b.fillColor = UIColor(white: 0.15, alpha: 1)
-            b.strokeColor = UIColor(white: 0.7, alpha: 1)
+            b.fillColor = ThemeColors.surface
+            b.strokeColor = ThemeColors.line
             b.lineWidth = 2
             b.name = "cam_\(i)"
-            let l = SKLabelNode(fontNamed: "AvenirNext-DemiBold")
+            let l = SKLabelNode(fontNamed: ThemeFonts.demi)
             l.text = "CAM \(i + 1)"
             l.fontSize = 16
-            l.fontColor = .white
+            l.fontColor = ThemeColors.text
             l.position = CGPoint(x: 0, y: -6)
             b.addChild(l)
             ui.addChild(b)
@@ -672,13 +701,13 @@ class GameScene: SKScene {
         }
 
         let close = SKShapeNode(rect: CGRect(x: -60, y: -22, width: 120, height: 44), cornerRadius: 12)
-        close.fillColor = UIColor(red: 0.85, green: 0.25, blue: 0.25, alpha: 1)
+        close.fillColor = ThemeColors.danger
         close.strokeColor = .clear
         close.name = "cctv_close"
-        let cl = SKLabelNode(fontNamed: "AvenirNext-Heavy")
+        let cl = SKLabelNode(fontNamed: ThemeFonts.heavy)
         cl.text = "EXIT"
         cl.fontSize = 19
-        cl.fontColor = .white
+        cl.fontColor = ThemeColors.text
         cl.position = CGPoint(x: 0, y: -7)
         close.addChild(cl)
         ui.addChild(close)
@@ -737,45 +766,45 @@ class GameScene: SKScene {
         guard !hudBuilt else { return }
         hudBuilt = true
 
-        progressCaption = SKLabelNode(fontNamed: "AvenirNext-Heavy")
+        progressCaption = SKLabelNode(fontNamed: ThemeFonts.heavy)
         progressCaption.text = role == .impostor ? "CREW TASK PROGRESS" : "TASK PROGRESS"
         progressCaption.fontSize = 14
-        progressCaption.fontColor = UIColor(white: 0.8, alpha: 1)
+        progressCaption.fontColor = ThemeColors.textSecondary
         progressCaption.horizontalAlignmentMode = .left
         cam.addChild(progressCaption)
 
         progressBarBg = SKShapeNode()
         progressBarBg.name = "progressBarBg"
-        progressBarBg.fillColor = UIColor(white: 0.12, alpha: 1)
-        progressBarBg.strokeColor = UIColor(white: 0.9, alpha: 0.6)
+        progressBarBg.fillColor = ThemeColors.surface2
+        progressBarBg.strokeColor = ThemeColors.line.withAlphaComponent(0.8)
         progressBarBg.lineWidth = 2
         cam.addChild(progressBarBg)
 
         progressBarFill = SKShapeNode()
-        progressBarFill.fillColor = UIColor(red: 0.25, green: 0.85, blue: 0.4, alpha: 1)
+        progressBarFill.fillColor = ThemeColors.success
         progressBarFill.strokeColor = .clear
         progressBarFill.xScale = 0.0001
         cam.addChild(progressBarFill)
 
-        progressPct = SKLabelNode(fontNamed: "AvenirNext-Heavy")
+        progressPct = SKLabelNode(fontNamed: ThemeFonts.heavy)
         progressPct.fontSize = 15
-        progressPct.fontColor = .white
+        progressPct.fontColor = ThemeColors.text
         cam.addChild(progressPct)
 
-        roomLabel = SKLabelNode(fontNamed: "AvenirNext-Heavy")
+        roomLabel = SKLabelNode(fontNamed: ThemeFonts.heavy)
         roomLabel.fontSize = 24
-        roomLabel.fontColor = UIColor(white: 1, alpha: 0.85)
+        roomLabel.fontColor = ThemeColors.text.withAlphaComponent(0.9)
         cam.addChild(roomLabel)
 
-        useButton = makeRoundButton(radius: 44, label: "USE", color: UIColor(red: 0.95, green: 0.85, blue: 0.2, alpha: 1), name: "btn_use")
+        useButton = makeRoundButton(radius: 44, label: "USE", color: ThemeColors.butter, name: "btn_use")
         cam.addChild(useButton)
 
-        reportButton = makeRoundButton(radius: 40, label: "REPORT", color: UIColor(red: 0.9, green: 0.25, blue: 0.2, alpha: 1), name: "btn_report", fontSize: 15)
+        reportButton = makeRoundButton(radius: 40, label: "REPORT", color: ThemeColors.danger, name: "btn_report", fontSize: 15)
         cam.addChild(reportButton)
 
         if role == .impostor {
-            let kb = makeRoundButton(radius: 40, label: "KILL", color: UIColor(red: 0.85, green: 0.1, blue: 0.1, alpha: 1), name: "btn_kill")
-            let cd = SKLabelNode(fontNamed: "AvenirNext-Heavy")
+            let kb = makeRoundButton(radius: 40, label: "KILL", color: ThemeColors.coralDeep, name: "btn_kill")
+            let cd = SKLabelNode(fontNamed: ThemeFonts.heavy)
             cd.fontSize = 22
             cd.fontColor = .white
             cd.position = CGPoint(x: 0, y: -7)
@@ -786,24 +815,27 @@ class GameScene: SKScene {
             cam.addChild(kb)
         }
 
-        mapButton = makeRoundButton(radius: 30, label: "MAP", color: UIColor(white: 0.25, alpha: 1), name: "btn_map", fontSize: 15)
+        mapButton = makeRoundButton(radius: 30, label: "MAP", color: ThemeColors.surface2, name: "btn_map", fontSize: 15)
         cam.addChild(mapButton)
 
-        joyBase.fillColor = UIColor(white: 1, alpha: 0.06)
-        joyBase.strokeColor = UIColor(white: 1, alpha: 0.35)
+        menuButton = makeMenuButton()
+        cam.addChild(menuButton)
+
+        joyBase.fillColor = UIColor.white.withAlphaComponent(0.35)
+        joyBase.strokeColor = ThemeColors.line
         joyBase.lineWidth = 3
         joyBase.zPosition = 50
         joyBase.isHidden = true
         cam.addChild(joyBase)
-        joyKnob.fillColor = UIColor(white: 1, alpha: 0.3)
+        joyKnob.fillColor = UIColor.white.withAlphaComponent(0.6)
         joyKnob.strokeColor = .clear
         joyKnob.zPosition = 51
         joyKnob.isHidden = true
         cam.addChild(joyKnob)
 
-        toastLabel = SKLabelNode(fontNamed: "AvenirNext-DemiBold")
+        toastLabel = SKLabelNode(fontNamed: ThemeFonts.demi)
         toastLabel.fontSize = 22
-        toastLabel.fontColor = UIColor(red: 1, green: 0.85, blue: 0.4, alpha: 1)
+        toastLabel.fontColor = ThemeColors.butterInk
         toastLabel.zPosition = 60
         toastLabel.numberOfLines = 3
         toastLabel.lineBreakMode = .byWordWrapping
@@ -837,6 +869,7 @@ class GameScene: SKScene {
             progressCaption.isHidden = true
 
             mapButton.position = CGPoint(x: w / 2 - 56, y: h / 2 - 150)
+            menuButton.position = CGPoint(x: w / 2 - 56, y: h / 2 - 208)
 
             useButton.position = CGPoint(x: w / 2 - 72, y: -h / 2 + 108)
             if role == .impostor {
@@ -864,6 +897,7 @@ class GameScene: SKScene {
             progressCaption.position = CGPoint(x: barX - 150, y: barY + 16)
 
             mapButton.position = CGPoint(x: w / 2 - 60, y: h / 2 - 50)
+            menuButton.position = CGPoint(x: w / 2 - 132, y: h / 2 - 50)
 
             useButton.position = CGPoint(x: w / 2 - 90, y: -h / 2 + 100)
             if role == .impostor {
@@ -883,14 +917,14 @@ class GameScene: SKScene {
         node.name = name
         let circle = SKShapeNode(circleOfRadius: radius)
         circle.fillColor = color
-        circle.strokeColor = UIColor(white: 0, alpha: 0.35)
+        circle.strokeColor = ThemeColors.text.withAlphaComponent(0.25)
         circle.lineWidth = 4
         circle.name = name
         node.addChild(circle)
-        let l = SKLabelNode(fontNamed: "AvenirNext-Heavy")
+        let l = SKLabelNode(fontNamed: ThemeFonts.heavy)
         l.text = label
         l.fontSize = fontSize
-        l.fontColor = UIColor(white: 0.1, alpha: 1)
+        l.fontColor = ThemeColors.text
         l.position = CGPoint(x: 0, y: -fontSize / 2.6)
         l.name = name
         node.addChild(l)
@@ -907,10 +941,10 @@ class GameScene: SKScene {
         guard let you = playerParticipant else { return }
         let baseX = -sceneSize.width / 2 + (isPortrait ? 16 : 20)
         let baseY = sceneSize.height / 2 - (isPortrait ? 150 : 90)
-        let header = SKLabelNode(fontNamed: "AvenirNext-Heavy")
+        let header = SKLabelNode(fontNamed: ThemeFonts.heavy)
         header.text = you.isImpostor ? "FAKE TASKS:" : "YOUR TASKS:"
         header.fontSize = isPortrait ? 12 : 14
-        header.fontColor = you.isImpostor ? UIColor(red: 0.95, green: 0.35, blue: 0.35, alpha: 1) : UIColor(red: 1, green: 0.85, blue: 0.3, alpha: 1)
+        header.fontColor = you.isImpostor ? ThemeColors.coralDeep : ThemeColors.butterInk
         header.horizontalAlignmentMode = .left
         header.position = CGPoint(x: baseX, y: baseY)
         cam.addChild(header)
@@ -919,10 +953,10 @@ class GameScene: SKScene {
         let step: CGFloat = isPortrait ? 17 : 18
         for (i, tid) in you.remainingTaskIds.prefix(6).enumerated() {
             if let st = stations.first(where: { $0.id == tid }) {
-                let l = SKLabelNode(fontNamed: "AvenirNext-Medium")
+                let l = SKLabelNode(fontNamed: ThemeFonts.med)
                 l.text = "• \(st.kind.displayName) — \(st.roomName)"
                 l.fontSize = isPortrait ? 12 : 13
-                l.fontColor = UIColor(white: 0.85, alpha: 1)
+                l.fontColor = ThemeColors.textSecondary
                 l.horizontalAlignmentMode = .left
                 l.position = CGPoint(x: baseX, y: baseY - 20 - CGFloat(i) * step)
                 cam.addChild(l)
@@ -986,7 +1020,7 @@ class GameScene: SKScene {
         guard let toast = toastLabel else { return }
         let fontSize: CGFloat = isPortrait ? 15 : 20
         let maxWidth = sceneSize.width - (isPortrait ? 56 : 120)
-        let font = UIFont(name: "AvenirNext-DemiBold", size: fontSize) ?? .systemFont(ofSize: fontSize)
+        let font = UIFont(name: ThemeFonts.demi, size: fontSize) ?? .systemFont(ofSize: fontSize)
         let lines = wrap(text: text, font: font, maxWidth: maxWidth)
         toast.text = lines.joined(separator: "\n")
         toast.fontSize = fontSize
@@ -1014,6 +1048,271 @@ class GameScene: SKScene {
         return lines
     }
 
+    // MARK: - Menu sidebar
+
+    /// Round ☰ button that toggles the sidebar (sibling of the MAP button).
+    private func makeMenuButton() -> SKNode {
+        let node = SKNode()
+        node.name = "btn_menu"
+        let circle = SKShapeNode(circleOfRadius: 30)
+        circle.fillColor = ThemeColors.surface2
+        circle.strokeColor = ThemeColors.lineStrong
+        circle.lineWidth = 3
+        circle.name = "btn_menu"
+        node.addChild(circle)
+        for i in -1...1 {
+            let bar = SKShapeNode(rectOf: CGSize(width: 24, height: 3.5), cornerRadius: 1.75)
+            bar.fillColor = ThemeColors.text
+            bar.strokeColor = .clear
+            bar.position = CGPoint(x: 0, y: CGFloat(i) * 8)
+            node.addChild(bar)
+        }
+        return node
+    }
+
+    private func makeMenuRow(text: String, name: String, width: CGFloat, height: CGFloat,
+                             fill: UIColor, textColor: UIColor = .white, value: String? = nil) -> SKNode {
+        let row = SKShapeNode(rect: CGRect(x: -width / 2, y: -height / 2, width: width, height: height),
+                              cornerRadius: min(ThemeRadius.button, height / 2))
+        row.fillColor = fill
+        row.strokeColor = ThemeColors.divider
+        row.lineWidth = 1
+        row.name = name
+        let l = SKLabelNode(fontNamed: ThemeFonts.demi)
+        l.text = text
+        l.fontSize = 15
+        l.fontColor = textColor
+        l.horizontalAlignmentMode = .left
+        l.position = CGPoint(x: -width / 2 + 18, y: -5)
+        l.name = name
+        row.addChild(l)
+        if let value {
+            let v = SKLabelNode(fontNamed: ThemeFonts.heavy)
+            v.text = "‹ \(value) ›"
+            v.fontSize = 13
+            v.fontColor = ThemeColors.butterInk
+            v.horizontalAlignmentMode = .right
+            v.position = CGPoint(x: width / 2 - 16, y: -4)
+            v.name = "menu_speed_value"
+            row.addChild(v)
+        }
+        return row
+    }
+
+    /// Slides the sidebar in from the right edge and pauses the game.
+    func openMenu() {
+        guard menuRoot == nil, !gameOver, !meetingActive else { return }
+        menuOpen = true
+        cancelScan()
+        closeCCTV()
+        if minimap != nil { toggleMinimap() }
+
+        let w = sceneSize.width, h = sceneSize.height
+        let portrait = isPortrait
+        let panelW: CGFloat = portrait ? min(w - 44, 320) : 264
+        let maxPanelH = h - (portrait ? 92 : 40)
+
+        // Flowing layout: title zone, action rows, SETTINGS label, speed + home
+        // rows. Row height shrinks (and RESTART drops) on short landscape screens.
+        let gap: CGFloat = 10
+        let titleZone: CGFloat = 70
+        let settingsZone: CGFloat = 28
+        let bottomPad: CGFloat = 20
+        let zones = titleZone + settingsZone + bottomPad
+        var middleCount = 4   // RESUME, MAP, HOW TO PLAY, RESTART
+        var rowCount = middleCount + 2
+        var gaps = CGFloat(rowCount - 1) * gap
+        var rowH: CGFloat = 44
+        var panelH = min(maxPanelH, zones + gaps + CGFloat(rowCount) * rowH)
+        if panelH < zones + gaps + CGFloat(rowCount) * rowH {
+            var rh = (panelH - zones - gaps) / CGFloat(rowCount)
+            if rh < 32 && middleCount == 4 {
+                middleCount = 3
+                rowCount = middleCount + 2
+                gaps = CGFloat(rowCount - 1) * gap
+                rh = (panelH - zones - gaps) / CGFloat(rowCount)
+            }
+            rowH = max(28, rh)
+            panelH = min(maxPanelH, zones + gaps + CGFloat(rowCount) * rowH)
+        }
+        let rowW = panelW - 28
+
+        let root = SKNode()
+        root.zPosition = 800
+
+        let backdrop = SKShapeNode(rectOf: CGSize(width: 6000, height: 4000))
+        backdrop.fillColor = ThemeColors.overlayDark.withAlphaComponent(0.45)
+        backdrop.strokeColor = .clear
+        backdrop.name = "menu_backdrop"
+        backdrop.alpha = 0
+        backdrop.run(.fadeAlpha(to: 1, duration: 0.18))
+        root.addChild(backdrop)
+
+        let panel = SKNode()
+        let targetX = w / 2 - panelW / 2 - 12
+        panel.position = CGPoint(x: targetX + panelW + 80, y: 0)
+        let slide = SKAction.moveTo(x: targetX, duration: 0.24)
+        slide.timingMode = .easeInEaseOut
+        panel.run(slide)
+        root.addChild(panel)
+
+        let bg = SKShapeNode(rectOf: CGSize(width: panelW, height: panelH), cornerRadius: ThemeRadius.modal)
+        bg.fillColor = ThemeColors.surface
+        bg.strokeColor = ThemeColors.lineStrong
+        bg.lineWidth = 3
+        bg.name = "menu_panel"
+        panel.addChild(bg)
+
+        let title = SKLabelNode(fontNamed: ThemeFonts.heavy)
+        title.text = "MENU"
+        title.fontSize = 24
+        title.fontColor = ThemeColors.text
+        title.position = CGPoint(x: 0, y: panelH / 2 - 34)
+        panel.addChild(title)
+
+        let sub = SKLabelNode(fontNamed: ThemeFonts.med)
+        sub.text = "game paused"
+        sub.fontSize = 11
+        sub.fontColor = ThemeColors.textSecondary
+        sub.position = CGPoint(x: 0, y: panelH / 2 - 55)
+        panel.addChild(sub)
+
+        var cursor = panelH / 2 - titleZone
+        func addRow(_ text: String, _ name: String, _ fill: UIColor, _ textColor: UIColor) {
+            let row = makeMenuRow(text: text, name: name, width: rowW, height: rowH,
+                                  fill: fill, textColor: textColor)
+            row.position = CGPoint(x: 0, y: cursor - rowH / 2)
+            panel.addChild(row)
+            cursor -= rowH + gap
+        }
+        addRow("RESUME", "menu_resume", ThemeColors.sageDeep, .white)
+        addRow("MAP", "menu_map", ThemeColors.surface2, ThemeColors.text)
+        addRow("HOW TO PLAY", "menu_help", ThemeColors.surface2, ThemeColors.text)
+        if middleCount == 4 {
+            addRow("RESTART", "menu_restart", ThemeColors.surface2, ThemeColors.text)
+        }
+
+        let section = SKLabelNode(fontNamed: ThemeFonts.heavy)
+        section.text = "SETTINGS"
+        section.fontSize = 11
+        section.fontColor = ThemeColors.textSecondary
+        section.horizontalAlignmentMode = .left
+        section.position = CGPoint(x: -rowW / 2 + 4, y: cursor - 4)
+        panel.addChild(section)
+        cursor -= settingsZone
+
+        let speedRow = makeMenuRow(text: "MOVE SPEED", name: "menu_speed", width: rowW, height: rowH,
+                                   fill: ThemeColors.surface2, textColor: ThemeColors.text,
+                                   value: speedChoices[speedIndex].label)
+        speedRow.position = CGPoint(x: 0, y: cursor - rowH / 2)
+        panel.addChild(speedRow)
+        cursor -= rowH + gap
+        speedValueLabel = speedRow.childNode(withName: "menu_speed_value") as? SKLabelNode
+
+        let home = makeMenuRow(text: "EXIT TO HOME", name: "menu_home", width: rowW, height: rowH,
+                               fill: ThemeColors.coralDeep, textColor: .white)
+        home.position = CGPoint(x: 0, y: cursor - rowH / 2)
+        panel.addChild(home)
+
+        cam.addChild(root)
+        menuRoot = root
+        menuPanel = panel
+    }
+
+    func closeMenu(animated: Bool = true) {
+        guard let root = menuRoot else { return }
+        let panel = menuPanel
+        menuRoot = nil
+        menuPanel = nil
+        speedValueLabel = nil
+        menuOpen = false
+        guard animated else {
+            root.removeFromParent()
+            return
+        }
+        root.childNode(withName: "menu_backdrop")?.run(.fadeAlpha(to: 0, duration: 0.16))
+        let slideOut = SKAction.moveBy(x: 600, y: 0, duration: 0.18)
+        slideOut.timingMode = .easeIn
+        panel?.run(slideOut)
+        root.run(.sequence([.wait(forDuration: 0.2), .removeFromParent()]))
+    }
+
+    private func cycleSpeed() {
+        speedIndex = (speedIndex + 1) % speedChoices.count
+        speedMultiplier = speedChoices[speedIndex].mult
+        speedValueLabel?.text = "‹ \(speedChoices[speedIndex].label) ›"
+        speedValueLabel?.run(.sequence([.scale(to: 1.25, duration: 0.08), .scale(to: 1, duration: 0.12)]))
+        UserDefaults.standard.set(Double(speedChoices[speedIndex].mult), forKey: "menu.speedMultiplier")
+    }
+
+    /// In-game "HOW TO PLAY" card (same content as the main menu's).
+    private func showHelpCard() {
+        guard helpCard == nil else { return }
+        let w = sceneSize.width, h = sceneSize.height
+        let lines = [
+            "MOVE — joystick (left of screen) or WASD / arrows",
+            "USE / E — use a station, open CCTV in Security",
+            "REPORT / R — report a body, start a meeting",
+            "KILL / Q — impostor only · 25 s cooldown",
+            "MAP / M — minimap with your tasks",
+            "MENU / ESC — pause, settings, back to home",
+            "",
+            "Crewmate: finish tasks, spot the killer, vote them out.",
+            "Impostor: eliminate the crew before tasks are done.",
+            "Security cameras can witness kills.",
+        ]
+        let cardW = min(560, w - 44)
+        // Fit by height (short landscape screens) and by width (portrait).
+        let measureFont = UIFont(name: ThemeFonts.med, size: 15) ?? .systemFont(ofSize: 15)
+        let widest = lines.map { ($0 as NSString).size(withAttributes: [.font: measureFont]).width }.max() ?? 1
+        let bodyF = max(10, min(15, (h - 150) / CGFloat(lines.count) - 9,
+                                15 * (cardW - 40) / max(widest, 1)))
+        let cardH = 96 + CGFloat(lines.count) * (bodyF + 9) + 20
+
+        let card = SKNode()
+        card.zPosition = 900
+        card.alpha = 0
+        card.run(.fadeAlpha(to: 1, duration: 0.15))
+
+        let bg = SKShapeNode(rectOf: CGSize(width: cardW, height: cardH), cornerRadius: ThemeRadius.modal)
+        bg.fillColor = ThemeColors.surface
+        bg.strokeColor = ThemeColors.lineStrong
+        bg.lineWidth = 3
+        bg.name = "help_card"
+        card.addChild(bg)
+
+        let title = SKLabelNode(fontNamed: ThemeFonts.heavy)
+        title.text = "HOW TO PLAY"
+        title.fontSize = 22
+        title.fontColor = ThemeColors.text
+        title.position = CGPoint(x: 0, y: cardH / 2 - 34)
+        card.addChild(title)
+
+        for (i, line) in lines.enumerated() {
+            let l = SKLabelNode(fontNamed: ThemeFonts.med)
+            l.text = line
+            l.fontSize = line.isEmpty ? 8 : bodyF
+            l.fontColor = i >= 7 ? ThemeColors.text : ThemeColors.textSecondary
+            l.position = CGPoint(x: 0, y: cardH / 2 - 58 - CGFloat(i) * (bodyF + 9))
+            card.addChild(l)
+        }
+
+        let hint = SKLabelNode(fontNamed: ThemeFonts.med)
+        hint.text = "tap anywhere to close"
+        hint.fontSize = 11
+        hint.fontColor = ThemeColors.textSecondary
+        hint.position = CGPoint(x: 0, y: -cardH / 2 + 18)
+        card.addChild(hint)
+
+        cam.addChild(card)
+        helpCard = card
+    }
+
+    private func closeHelpCard() {
+        helpCard?.removeFromParent()
+        helpCard = nil
+    }
+
     // MARK: - Minimap
 
     private func toggleMinimap() {
@@ -1032,8 +1331,8 @@ class GameScene: SKScene {
         let panelH: CGFloat = portrait ? mapH + 96 : 420
 
         let bgPanel = SKShapeNode(rectOf: CGSize(width: panelW, height: panelH), cornerRadius: 20)
-        bgPanel.fillColor = UIColor(white: 0.08, alpha: 0.96)
-        bgPanel.strokeColor = UIColor(white: 0.8, alpha: 0.6)
+        bgPanel.fillColor = ThemeColors.surface.withAlphaComponent(0.96)
+        bgPanel.strokeColor = ThemeColors.line.withAlphaComponent(0.8)
         bgPanel.lineWidth = 4
         panel.addChild(bgPanel)
 
@@ -1054,8 +1353,9 @@ class GameScene: SKScene {
             for tid in you.remainingTaskIds {
                 if let st = stations.first(where: { $0.id == tid }) {
                     let dot = SKShapeNode(circleOfRadius: dotR)
-                    dot.fillColor = UIColor(red: 1, green: 0.85, blue: 0.2, alpha: 1)
-                    dot.strokeColor = .clear
+                    dot.fillColor = ThemeColors.butter
+                    dot.strokeColor = ThemeColors.text.withAlphaComponent(0.5)
+                    dot.lineWidth = 1.5
                     dot.position = toMap(st.position)
                     panel.addChild(dot)
                 }
@@ -1065,16 +1365,16 @@ class GameScene: SKScene {
         if let you = playerParticipant {
             let dot = SKShapeNode(circleOfRadius: dotR + 2)
             dot.fillColor = you.crewmate.color.uiColor
-            dot.strokeColor = .white
+            dot.strokeColor = ThemeColors.text
             dot.lineWidth = 3
             dot.position = toMap(you.crewmate.position)
             panel.addChild(dot)
         }
 
-        let hint = SKLabelNode(fontNamed: "AvenirNext-Medium")
+        let hint = SKLabelNode(fontNamed: ThemeFonts.med)
         hint.text = "Tap anywhere to close · yellow = your tasks"
         hint.fontSize = portrait ? 12 : 14
-        hint.fontColor = UIColor(white: 0.7, alpha: 1)
+        hint.fontColor = ThemeColors.textSecondary
         hint.position = CGPoint(x: 0, y: -panelH / 2 + 22)
         panel.addChild(hint)
 
@@ -1134,19 +1434,19 @@ class GameScene: SKScene {
         scanProgress = 0
         let bar = SKNode()
         let bg = SKShapeNode(rectOf: CGSize(width: 96, height: 18), cornerRadius: 9)
-        bg.fillColor = UIColor(white: 0.1, alpha: 0.8)
-        bg.strokeColor = .white
+        bg.fillColor = ThemeColors.surface2.withAlphaComponent(0.9)
+        bg.strokeColor = ThemeColors.text
         bg.lineWidth = 2
         bar.addChild(bg)
         let fill = SKShapeNode(rect: CGRect(x: -44, y: -5, width: 1, height: 10), cornerRadius: 0)
-        fill.fillColor = UIColor(red: 0.3, green: 0.95, blue: 0.7, alpha: 1)
+        fill.fillColor = ThemeColors.mintDeep
         fill.strokeColor = .clear
         fill.name = "fill"
         bar.addChild(fill)
-        let label = SKLabelNode(fontNamed: "AvenirNext-DemiBold")
+        let label = SKLabelNode(fontNamed: ThemeFonts.demi)
         label.text = "SCANNING…"
         label.fontSize = 13
-        label.fontColor = .white
+        label.fontColor = ThemeColors.text
         label.position = CGPoint(x: 0, y: 22)
         bar.addChild(label)
         bar.zPosition = 40
@@ -1181,12 +1481,31 @@ class GameScene: SKScene {
         let location = touch.location(in: self)
         let camLocation = touch.location(in: cam)
 
+        if helpCard != nil {
+            closeHelpCard()
+            return
+        }
+
+        // While the menu sidebar is open it is the only interactive thing.
+        if menuOpen {
+            let hit = nodeAt(location, names: ["btn_menu", "menu_resume", "menu_map", "menu_help",
+                                               "menu_restart", "menu_speed", "menu_home",
+                                               "menu_backdrop", "menu_panel"])
+            switch hit {
+            case "menu_panel": break                     // tapped the panel body: ignore
+            case nil, "menu_backdrop", "btn_menu": closeMenu()   // tapped outside: close
+            default: handleButton(hit!)
+            }
+            return
+        }
+
         if minimap != nil {
             toggleMinimap()
             return
         }
 
-        if let name = nodeAt(location, names: ["btn_use", "btn_report", "btn_kill", "btn_map", "end_again", "end_menu",
+        if let name = nodeAt(location, names: ["btn_use", "btn_report", "btn_kill", "btn_map", "btn_menu",
+                                               "end_again", "end_menu",
                                                "cam_0", "cam_1", "cam_2", "cam_3", "cctv_close"]) {
             handleButton(name)
             return
@@ -1248,21 +1567,36 @@ class GameScene: SKScene {
         case "btn_report": reportAction()
         case "btn_kill": killAction()
         case "btn_map": toggleMinimap()
+        case "btn_menu": menuOpen ? closeMenu() : openMenu()
         case "cctv_close": closeCCTV()
         case "cam_0": cctvIndex = 0
         case "cam_1": cctvIndex = 1
         case "cam_2": cctvIndex = 2
         case "cam_3": cctvIndex = 3
-        case "end_again":
-            let scene = GameScene(role: role)
-            scene.scaleMode = .resizeFill
-            view?.presentScene(scene, transition: .fade(withDuration: 0.4))
-        case "end_menu":
-            let scene = MainMenuScene(size: sceneSize)
-            scene.scaleMode = .resizeFill
-            view?.presentScene(scene, transition: .fade(withDuration: 0.4))
+        case "menu_resume": closeMenu()
+        case "menu_map":
+            closeMenu()
+            toggleMinimap()
+        case "menu_help":
+            closeMenu()
+            showHelpCard()
+        case "menu_speed": cycleSpeed()
+        case "end_again", "menu_restart": restartGame()
+        case "end_menu", "menu_home": returnHome()
         default: break
         }
+    }
+
+    private func restartGame() {
+        let scene = GameScene(role: role)
+        scene.scaleMode = .resizeFill
+        view?.presentScene(scene, transition: .fade(withDuration: 0.4))
+    }
+
+    private func returnHome() {
+        let scene = MainMenuScene(size: sceneSize)
+        scene.scaleMode = .resizeFill
+        view?.presentScene(scene, transition: .fade(withDuration: 0.4))
     }
 
     // MARK: - Keyboard (forwarded by GameViewController)
@@ -1274,11 +1608,14 @@ class GameScene: SKScene {
             case .keyboardE: if !movementLocked { useAction() }
             case .keyboardR: if !movementLocked { reportAction() }
             case .keyboardQ: if !movementLocked { killAction() }
-            case .keyboardM: toggleMinimap()
+            case .keyboardM: if !menuOpen { toggleMinimap() }
             case .keyboardEscape:
-                if cctvActive { closeCCTV() }
+                if helpCard != nil { closeHelpCard() }
+                else if cctvActive { closeCCTV() }
                 else if activeOverlay != nil { activeOverlay?.close() }
                 else if minimap != nil { toggleMinimap() }
+                else if menuOpen { closeMenu() }
+                else { openMenu() }
             default: break
             }
         } else {
@@ -1297,14 +1634,23 @@ class GameScene: SKScene {
         let renderer = UIGraphicsImageRenderer(size: size, format: format)
         let img = renderer.image { ctx in
             let c = ctx.cgContext
-            c.setFillColor(UIColor(red: 0.045, green: 0.05, blue: 0.09, alpha: 1).cgColor)
+            c.setFillColor(ThemeColors.bg.cgColor)
             c.fill(CGRect(origin: .zero, size: size))
-            for _ in 0..<420 {
+            // Soft campus sky: white cloud blobs over warm paper grain.
+            for _ in 0..<34 {
                 let x = CGFloat.random(in: 0...size.width)
                 let y = CGFloat.random(in: 0...size.height)
-                let r = CGFloat.random(in: 0.7...2.4)
-                let a = CGFloat.random(in: 0.25...0.95)
+                let r = CGFloat.random(in: 14...42)
+                let a = CGFloat.random(in: 0.3...0.55)
                 c.setFillColor(UIColor(white: 1, alpha: a).cgColor)
+                c.fillEllipse(in: CGRect(x: x - r / 2, y: y - r * 0.3, width: r, height: r * 0.6))
+            }
+            for _ in 0..<180 {
+                let x = CGFloat.random(in: 0...size.width)
+                let y = CGFloat.random(in: 0...size.height)
+                let r = CGFloat.random(in: 0.7...2.2)
+                let a = CGFloat.random(in: 0.5...0.9)
+                c.setFillColor(UIColor(red: 0.93, green: 0.9, blue: 0.84, alpha: a).cgColor)
                 c.fillEllipse(in: CGRect(x: x, y: y, width: r, height: r))
             }
         }
@@ -1318,7 +1664,7 @@ class GameScene: SKScene {
         let renderer = UIGraphicsImageRenderer(size: size, format: format)
         let img = renderer.image { ctx in
             let c = ctx.cgContext
-            c.setFillColor(UIColor(white: 0, alpha: 0.22).cgColor)
+            c.setFillColor(ThemeColors.text.withAlphaComponent(0.13).cgColor)
             for y in stride(from: CGFloat(0), to: size.height, by: 4) {
                 c.fill(CGRect(x: 0, y: y, width: size.width, height: 2))
             }
